@@ -122,7 +122,7 @@ func (mt *Monitor) GetAvaliableWorker() *Worker {
 	return nil
 }
 
-//GetAllWorkersRange 获取所以worker的范围
+//GetAllWorkersRange 获取所有worker的范围
 func (mt *Monitor) GetAllWorkersRange() (ranges []*Range) {
 	ranges = make([]*Range, 0, len(mt.workers))
 	for _, worker := range mt.workers {
@@ -323,8 +323,9 @@ func (mt *Monitor) Execute(cancelCtx context.Context) {
 			}
 
 			// 速度减慢或者全部失败, 开始监控
+			// 只有一个worker时不重设连接
 			isLeftWorkersAllFailed := mt.IsLeftWorkersAllFailed()
-			if mt.status.SpeedsPerSecond() < mt.status.MaxSpeeds()/5 || isLeftWorkersAllFailed {
+			if (len(mt.workers) > 1 && mt.status.SpeedsPerSecond() < mt.status.MaxSpeeds()/5) || isLeftWorkersAllFailed {
 				if isLeftWorkersAllFailed {
 					pcsverbose.Verbosef("DEBUG: monitor: All workers failed\n")
 				}

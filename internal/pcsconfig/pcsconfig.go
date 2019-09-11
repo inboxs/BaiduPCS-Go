@@ -3,13 +3,16 @@ package pcsconfig
 
 import (
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
+	"github.com/iikira/BaiduPCS-Go/baidupcs/dlinkclient"
 	"github.com/iikira/BaiduPCS-Go/pcsutil"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/jsonhelper"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/json-iterator/go"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"unsafe"
 )
@@ -42,12 +45,14 @@ type PCSConfig struct {
 	saveDir           string // 下载储存路径
 	enableHTTPS       bool   // 启用https
 	proxy             string // 代理
+	localAddrs        string // 本地网卡地址
 
 	configFilePath string
 	configFile     *os.File
 	fileMu         sync.Mutex
 	activeUser     *Baidu
 	pcs            *baidupcs.BaiduPCS
+	dc             *dlinkclient.DlinkClient
 }
 
 // NewConfig 返回 PCSConfig 指针对象
@@ -143,6 +148,8 @@ func (c *PCSConfig) init() error {
 
 	// 设置全局代理
 	requester.SetGlobalProxy(c.proxy)
+	// 设置本地网卡地址
+	requester.SetLocalTCPAddrList(strings.Split(c.localAddrs, ",")...)
 
 	return nil
 }
@@ -196,8 +203,7 @@ func (c *PCSConfig) loadConfigFromFile() (err error) {
 		return err
 	}
 
-	d := jsoniter.NewDecoder(c.configFile)
-	err = d.Decode((*pcsConfigJSONExport)(unsafe.Pointer(c)))
+	err = jsonhelper.UnmarshalData(c.configFile, (*pcsConfigJSONExport)(unsafe.Pointer(c)))
 	if err != nil {
 		return ErrConfigContentsParseError
 	}
@@ -206,9 +212,9 @@ func (c *PCSConfig) loadConfigFromFile() (err error) {
 
 func (c *PCSConfig) initDefaultConfig() {
 	c.appID = 266719
-	c.cacheSize = 30000
-	c.maxParallel = 100
-	c.maxUploadParallel = 10
+	c.cacheSize = 65536
+	c.maxParallel = 128
+	c.maxUploadParallel = 8
 	c.maxDownloadLoad = 1
 	c.userAgent = "netdisk;8.3.1;android-android"
 
